@@ -1,4 +1,4 @@
-const char *line_fsh =  R"(  // "
+static const char *line_fsh =  R"(  // "
 /*
  * Copyright (c) 2019 Anton Stiopin astiopin@gmail.com
  *

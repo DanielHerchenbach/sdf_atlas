@@ -37,6 +37,7 @@
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../third_party/stb_image_write.h"
+#include <map>
 
 ArgsParser   args;
 SdfGl        sdf_gl;
@@ -45,14 +46,13 @@ Font         font;
 GlyphPainter gp;
 
 int          max_tex_size = 2048;
-int          width = 1024;
-int          height = 0;
-int          row_height = 96;
-int          border_size = 16;
-
+int          width = max_tex_size;
+int          height = max_tex_size;
+int          row_height = 45;
+int          border_size = 5;
 std::string  filename;
 std::string  res_filename;
-F2           tex_size = F2( 1024, 1024 );
+F2           tex_size = F2(width, height);
 
 
 struct UnicodeRange {
@@ -71,12 +71,12 @@ Usage: sdf_atlas -f font_file.ttf [options]
 Options:
     -h              this help
     -o 'filename'   output file name (without extension)
-    -tw 'size'      atlas image width in pixels, default 1024
+    -tw 'size'      atlas image width in pixels, default 2048
     -th 'size'      atlas image height in pixels (optional)
     -ur 'ranges'    unicode ranges 'start1:end1,start:end2,single_codepoint' without spaces,
-                    default: 31:126,0xffff
-    -bs 'size'      SDF distance in pixels, default 16
-    -rh 'size'      row height in pixels (without SDF border), default 96
+                    default: all
+    -bs 'size'      SDF distance in pixels, default 5
+    -rh 'size'      row height in pixels (without SDF border), default 45
 Example:
     sdf_atlas -f Roboto-Regular.ttf -o roboto -tw 2048 -th 2048 -bs 22 -rh 70 -ur 31:126,0xA0:0xFF,0x400:0x4FF,0xFFFF
 )";
@@ -260,9 +260,11 @@ int main( int argc, char* argv[] ) {
 
     sdf_atlas.init( &font, width, row_height, border_size );
 
+
     if ( unicode_ranges.empty() ) {
-        sdf_atlas.allocate_unicode_range( 0x21, 0x7e );
-        sdf_atlas.allocate_unicode_range( 0xffff, 0xffff );
+        for (auto const& x : sdf_atlas.font->glyph_map) {
+            sdf_atlas.allocate_unicode_range(x.first, x.first);
+        }
     } else {
         for ( const UnicodeRange& ur : unicode_ranges ) {
             sdf_atlas.allocate_unicode_range( ur.start, ur.end );
@@ -278,7 +280,7 @@ int main( int argc, char* argv[] ) {
         height = sdf_atlas.max_height;
     }
 
-    uint8_t* picbuf = (uint8_t*) malloc( width * height );
+    uint8_t* picbuf = (uint8_t*) malloc( width * height );    
 
     // GL initialization
     
@@ -331,12 +333,12 @@ int main( int argc, char* argv[] ) {
         memcpy( row1, row_swap, width );
     }
 
-    free( row_swap );
+    free( row_swap ); 
 
     // Saving the picture
 
     std::string png_filename = res_filename + ".png";
-    if ( !stbi_write_png( png_filename.c_str(), width, height, 1, picbuf, width ) ) {
+    if ( !stbi_write_png( png_filename.c_str(), width, height, 1, picbuf, width) ) {
         std::cout << "Error writing png file." << std::endl;
         exit( 1 );
     }
@@ -345,7 +347,7 @@ int main( int argc, char* argv[] ) {
 
     // Saving JSON
 
-    std::string json = sdf_atlas.json( height );
+    std::string json = sdf_atlas.json( height);
     std::ofstream json_file;
     json_file.open( res_filename + ".js" );
     if ( !json_file ) {

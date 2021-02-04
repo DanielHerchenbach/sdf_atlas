@@ -31,9 +31,9 @@ struct GlyphRect {
 
 struct SdfAtlas {
     Font *font        = nullptr;
-    float tex_width   = 2048.0f;
-    float row_height  = 96.0f;
-    float sdf_size    = 16.0f;
+    float tex_width = 0;
+    float row_height  = 0;
+    float sdf_size    = 0;
     int   glyph_count = 0;
 
     float posx = 0;
@@ -52,5 +52,5 @@ struct SdfAtlas {
     
     void draw_glyphs( GlyphPainter& gp ) const;
 
-    std::string json( float tex_height, bool flip_texcoord_y = true ) const;
+    std::string json( float tex_height) const;
 };

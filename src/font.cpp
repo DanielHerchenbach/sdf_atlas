@@ -219,7 +219,7 @@ inline int glyph_loc_offset( int glyph_idx, bool is_loc32, const uint8_t *loca )
 
 // Display list for simple (non composite) glyph
 
-static void glyph_shape_simple( Glyph& glyph, std::vector<GlyphCommand>& commands, const uint8_t *glyph_loc, float scale ) {
+static void glyph_shape_simple( Glyph& glyph, std::vector<GlyphCommand>& commands, const uint8_t *glyph_loc) {
     int num_contours = ttf_i16( glyph_loc );
 
     if ( num_contours < 0 ) return;
@@ -351,7 +351,7 @@ static void glyph_shape_simple( Glyph& glyph, std::vector<GlyphCommand>& command
             contour_starts_off_curve = !on_curve;
             gc_contour_start_idx = commands.size();
             command.type = GlyphCommand::MoveTo;
-            command.p0 = scale * cur_pos;
+            command.p0 = cur_pos;
             command.p1 = F2{ 0.0f };
 
             commands.push_back( command );
@@ -363,14 +363,14 @@ static void glyph_shape_simple( Glyph& glyph, std::vector<GlyphCommand>& command
             if ( on_curve ) {
                 if ( prev_on_curve ) {
                     // Normal (non smooth) control point, pushing LineTo
-                    command.p0 = scale * cur_pos;
+                    command.p0 = cur_pos;
                     command.p1 = F2{ 0.0f };
                     command.type = GlyphCommand::LineTo;
                     commands.push_back( command );
                 } else {
                     // Normal control point, pushing BezTo
-                    command.p0 = scale * prev_pos;
-                    command.p1 = scale * cur_pos;
+                    command.p0 = prev_pos;
+                    command.p1 = cur_pos;
                     command.type = GlyphCommand::BezTo;
                     commands.push_back( command );
                 }
@@ -378,8 +378,8 @@ static void glyph_shape_simple( Glyph& glyph, std::vector<GlyphCommand>& command
                 if ( !prev_on_curve ) {
                     // Smooth curve, inserting control point in the middle
                     F2 mid_cp = 0.5f * ( prev_pos + cur_pos );
-                    command.p0 = scale * prev_pos;
-                    command.p1 = scale * mid_cp;
+                    command.p0 = prev_pos;
+                    command.p1 = mid_cp;
                     command.type = GlyphCommand::BezTo;
                     commands.push_back( command );
                 }
@@ -391,13 +391,13 @@ static void glyph_shape_simple( Glyph& glyph, std::vector<GlyphCommand>& command
             if ( contour_starts_off_curve ) {
                 if ( on_curve ) {
                     // Contour starts off-curve, contour start to current point
-                    commands[ gc_contour_start_idx ].p0 = scale * cur_pos;
+                    commands[ gc_contour_start_idx ].p0 = cur_pos;
                 } else {
                     // Contour starts and ends off-curve,
                     // calculating contour starting point, setting first MoveTo P0,
                     // and closing contour with BezTo
                     
-                    F2 cpos = scale * cur_pos;
+                    F2 cpos = cur_pos;
                     F2 next_cp = commands[ gc_contour_start_idx + 1 ].p0; // First BezTo off-curve CP
                     F2 pos = 0.5f * ( cpos + next_cp );                   // Contour start point
                     commands[ gc_contour_start_idx ].p0 = pos;
@@ -413,7 +413,7 @@ static void glyph_shape_simple( Glyph& glyph, std::vector<GlyphCommand>& command
                     
                     F2 start_pos = commands[ gc_contour_start_idx ].p0;
 
-                    command.p0 = scale * cur_pos;
+                    command.p0 = cur_pos;
                     command.p1 = start_pos;
                     command.type = GlyphCommand::BezTo;
                     commands.push_back( command );
@@ -472,7 +472,7 @@ static void glyph_commands_composite( Font& font, int glyph_idx ) {
 
 // Reading glyph display list or subglyphs of a composite glyph.
 
-static void glyph_shape( Font& font, int glyph_idx, bool is_loc32, const uint8_t *loca, const uint8_t *glyf, float scale ) {
+static void glyph_shape( Font& font, int glyph_idx, bool is_loc32, const uint8_t *loca, const uint8_t *glyf) {
     Glyph &glyph = font.glyphs[ glyph_idx ];
 
     int glyph_offset = glyph_loc_offset( glyph_idx, is_loc32, loca );
@@ -486,12 +486,12 @@ static void glyph_shape( Font& font, int glyph_idx, bool is_loc32, const uint8_t
     float maxx = ttf_i16( glyph_loc + 6 );
     float maxy = ttf_i16( glyph_loc + 8 );
     
-    glyph.min = scale * F2{ minx, miny };
-    glyph.max = scale * F2{ maxx, maxy };
+    glyph.min = F2{ minx, miny };
+    glyph.max = F2{ maxx, maxy };
 
     // Simple glyph
     if ( num_contours > 0 ) {
-        glyph_shape_simple( glyph, font.glyph_commands, glyph_loc, scale );
+        glyph_shape_simple( glyph, font.glyph_commands, glyph_loc);
 
     // Composite glyph
     } else if ( num_contours < 0 ) {
@@ -511,11 +511,11 @@ static void glyph_shape( Font& font, int glyph_idx, bool is_loc32, const uint8_t
             // Component position
             if ( flags & 2 ) {
                 if ( flags & 1 ) {
-                    gtr[2][0] = ttf_i16( pos ) * scale; pos += 2;
-                    gtr[2][1] = ttf_i16( pos ) * scale; pos += 2;
+                    gtr[2][0] = ttf_i16( pos ); pos += 2;
+                    gtr[2][1] = ttf_i16( pos ); pos += 2;
                 } else {
-                    gtr[2][0] = ( (int8_t) *pos ) * scale; pos++;
-                    gtr[2][1] = ( (int8_t) *pos ) * scale; pos++;
+                    gtr[2][0] = ( (int8_t) *pos ); pos++;
+                    gtr[2][1] = ( (int8_t) *pos ); pos++;
                 }
             } else {
                 assert( false );
@@ -553,7 +553,7 @@ static void glyph_shape( Font& font, int glyph_idx, bool is_loc32, const uint8_t
 
 // Reading kerning table
 
-static bool fill_kern( Font& font, const uint8_t *ttf, float scale ) {
+static bool fill_kern( Font& font, const uint8_t *ttf) {
     const uint8_t *kern = find_table( ttf, "kern" );
     if ( !kern ) return false;
 
@@ -582,7 +582,7 @@ static bool fill_kern( Font& font, const uint8_t *ttf, float scale ) {
         uint32_t right = ttf_u16( pos + 2 );
         int32_t  kern  = ttf_i16( pos + 4 );
         uint32_t pair = ( left << 16 ) | right;
-        font.kern_map.insert( { pair, kern * scale } );
+        font.kern_map.insert( { pair, kern} );
         pos += 6;
     }
 
@@ -637,16 +637,11 @@ bool Font::load_ttf_mem( const uint8_t *ttf ) {
 
     const uint8_t *hhea = find_table( ttf, "hhea" );
     if ( !hhea ) return false;
-    em_ascent  = ttf_i16( hhea + 4 );
-    em_descent = ttf_i16( hhea + 6 );
-    em_line_gap = ttf_i16( hhea + 8 );
+    ascent  = ttf_i16( hhea + 4 );
+    descent = ttf_i16( hhea + 6 );
+    line_gap = ttf_i16( hhea + 8 );
 
     uint32_t num_hmtx = ttf_u16( hhea + 34 );
-    
-    float scale = 1.0f / em_ascent;
-    ascent   = 1.0;
-    descent  = em_descent * scale;
-    line_gap = em_line_gap * scale;
 
     // Filling glyph idx mappings
     if ( !fill_cmap( *this, ttf ) ) return false;
@@ -655,14 +650,14 @@ bool Font::load_ttf_mem( const uint8_t *ttf ) {
 
     // These glyphs have both advance with and left side bearing in "hmtx" table
     for ( size_t iglyph = 0; iglyph < num_hmtx; ++iglyph ) {
-        glyphs[ iglyph ].advance_width     = ttf_u16( hmtx + iglyph * 4 ) * scale;
-        glyphs[ iglyph ].left_side_bearing = ttf_i16( hmtx + iglyph * 4 + 2 ) * scale;
+        glyphs[ iglyph ].advance_width     = ttf_u16( hmtx + iglyph * 4 );
+        glyphs[ iglyph ].left_side_bearing = ttf_i16( hmtx + iglyph * 4 + 2 );
     }
     // Rest of glyphs have left side bearing only
     for ( size_t iglyph = 0; iglyph < ( num_glyphs - num_hmtx ); ++iglyph ) {
         const uint8_t *pos = hmtx + num_hmtx * 4 + iglyph * 2;
-        glyphs[ iglyph + num_glyphs ].advance_width = 0.0f;
-        glyphs[ iglyph + num_glyphs ].left_side_bearing = ttf_i16( pos );
+        glyphs[iglyph + num_hmtx].advance_width = 0.0f;
+        glyphs[iglyph + num_hmtx].left_side_bearing = ttf_i16(pos);
     }
 
     // Reading glyph display lists while calculating glyph max bounding box
@@ -672,7 +667,7 @@ bool Font::load_ttf_mem( const uint8_t *ttf ) {
 
     // Reading simple glyph display listd and components for composite glyphs
     for ( size_t iglyph = 0; iglyph < num_glyphs; ++iglyph ) {
-        glyph_shape( *this, iglyph, is_loc32, loca, glyf, scale );
+        glyph_shape( *this, iglyph, is_loc32, loca, glyf);
         glyph_min = min( glyph_min, glyphs[iglyph].min );
         glyph_max = max( glyph_max, glyphs[iglyph].max );        
     }
@@ -695,7 +690,7 @@ bool Font::load_ttf_mem( const uint8_t *ttf ) {
     }
 
     // Some fonts store kerning information in "kern" table, reading it
-    fill_kern( *this, ttf, scale );
+    fill_kern( *this, ttf);
 
     // TODO Other fonts store kerning information in "gpos" table
         

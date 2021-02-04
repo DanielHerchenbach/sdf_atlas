@@ -82,9 +82,6 @@ struct Font {
     std::vector<GlyphComponent>          glyph_components;
 
     // Font metrics in em
-    float em_ascent, em_descent, em_line_gap;
-
-    // Font metrics relative to ascent (ascent == 1.0)
     float ascent, descent, line_gap;
 
     // Glyph maximum bounding box
