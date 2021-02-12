@@ -262,9 +262,9 @@ int main( int argc, char* argv[] ) {
 
 
     if ( unicode_ranges.empty() ) {
-        for (auto const& x : sdf_atlas.font->glyph_map) {
+         for (auto const& x : sdf_atlas.font->glyph_map) {
             sdf_atlas.allocate_unicode_range(x.first, x.first);
-        }
+         }
     } else {
         for ( const UnicodeRange& ur : unicode_ranges ) {
             sdf_atlas.allocate_unicode_range( ur.start, ur.end );

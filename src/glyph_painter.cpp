@@ -237,7 +237,13 @@ void GlyphPainter::draw_subglyph(const Font* font, int glyph_index, F2 pos, floa
 
 
     F2 p0, p1, pPrevious, pStart;
-    if (edgeSum > 0) {
+    // hack: explicit handling of subglyphs completely contained in another subglyph
+    const bool isSubglyphEnclosed = (
+        font->glyph_map.at(169) == glyph_index ||
+        font->glyph_map.at(174) == glyph_index ||
+        font->glyph_map.at(8471) == glyph_index
+    );
+    if (edgeSum > 0 || isSubglyphEnclosed) {
         /* Path is clockwise. */
         for (int ic = command_start; ic <= command_end; ++ic) {
             const GlyphCommand& gc = font->glyph_commands[ic];
