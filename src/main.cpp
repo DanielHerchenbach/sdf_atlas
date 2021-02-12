@@ -48,7 +48,7 @@ GlyphPainter gp;
 int          max_tex_size = 2048;
 int          width = max_tex_size;
 int          height = max_tex_size;
-int          row_height = 41;
+int          row_height = 45;
 int          border_size = 5;
 std::string  filename;
 std::string  res_filename;
