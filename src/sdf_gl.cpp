@@ -34,7 +34,7 @@ VertexAttrib vattribs[] = {
     VertexAttrib( 1, "par", 2 ),
     VertexAttrib( 2, "limits", 2 ),
     VertexAttrib( 3, "scale", 1 ),
-    VertexAttrib( 4, "line_width", 1 )
+    VertexAttrib( 4, "line_width", 1.0 )
 };
 
 constexpr size_t vattribs_count = sizeof( vattribs ) / sizeof( vattribs[0] );

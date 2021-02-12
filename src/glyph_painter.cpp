@@ -181,37 +181,137 @@ void LinePainter::close( float line_width ) {
     line_to( start_pos, line_width );
 }
 
+/* Used to check whether path is clockwise or counter-clockwise. */
+float GlyphPainter::getEdge(F2 startPoint, F2 endPoint) {
+    return (endPoint.x - startPoint.x) * (endPoint.y + startPoint.y);
+}
 
-
+/* Glyphs may not consist out of a single connected path. In this case, split the path first and draw multiple subglyhps.
+This is necessary because for each subglaph the orientation (clockwise or counter-clockwise) has to be checked individually. */
 void GlyphPainter::draw_glyph( const Font *font, int glyph_index, F2 pos, float scale, float sdf_size ) {
     const Glyph& g = font->glyphs[ glyph_index ];
     if ( g.command_count == 0 ) return;
 
-    for ( int ic = g.command_start; ic < g.command_start + g.command_count; ++ic ) {
-        const GlyphCommand& gc = font->glyph_commands[ ic ];
-        F2 p0, p1;
-
-        switch ( gc.type ) {
-        case GlyphCommand::MoveTo:
-            p0 = gc.p0 * scale + pos;
-            fp.move_to( p0 );
-            lp.move_to( p0 );
-            break;
-        case GlyphCommand::LineTo:
-            p0 = gc.p0 * scale + pos;
-            fp.line_to( p0 );
-            lp.line_to( p0, sdf_size );
-            break;
-        case GlyphCommand::BezTo:
-            p0 = gc.p0 * scale + pos;
-            p1 = gc.p1 * scale + pos;            
-            fp.qbez_to( p0, p1 );
-            lp.qbez_to( p0, p1, sdf_size );
-            break;
-        case GlyphCommand::ClosePath:
-            fp.close();
-            lp.close( sdf_size );
-            break;
+    int commmandStartSubglyph = g.command_start;
+    for (int ic = g.command_start; ic < g.command_start + g.command_count; ++ic) {
+        const GlyphCommand& gc = font->glyph_commands[ic];
+        if (
+            (ic == g.command_start + g.command_count - 1) ||
+            (gc.type == GlyphCommand::ClosePath)
+        ) {
+            GlyphPainter::draw_subglyph(font, glyph_index, pos, scale, sdf_size, commmandStartSubglyph, ic);
+            commmandStartSubglyph = ic + 1;
         }
     }
 }
+
+void GlyphPainter::draw_subglyph(const Font* font, int glyph_index, F2 pos, float scale, float sdf_size, int command_start, int command_end) {
+    const Glyph& g = font->glyphs[glyph_index];
+    if (g.command_count == 0) return;
+
+    /* Determine orientation of path. */
+    float edgeSum = 0;
+    for (int ic = command_start; ic <= command_end; ++ic) {
+        const GlyphCommand& gc = font->glyph_commands[ic];
+        F2 pPrevious, pStart;
+
+        switch (gc.type) {
+        case GlyphCommand::MoveTo:
+            pStart = gc.p0;
+            pPrevious = gc.p0;
+            break;
+        case GlyphCommand::LineTo:
+            edgeSum += GlyphPainter::getEdge(pPrevious, gc.p0);
+            pPrevious = gc.p0;
+            break;
+        case GlyphCommand::BezTo:
+            edgeSum += GlyphPainter::getEdge(pPrevious, gc.p0);
+            edgeSum += GlyphPainter::getEdge(gc.p0, gc.p1);
+            pPrevious = gc.p1;
+            break;
+        case GlyphCommand::ClosePath:
+            edgeSum += GlyphPainter::getEdge(pPrevious, pStart);
+            break;
+        }
+    }
+
+
+    F2 p0, p1, pPrevious, pStart;
+    if (edgeSum > 0) {
+        /* Path is clockwise. */
+        for (int ic = command_start; ic <= command_end; ++ic) {
+            const GlyphCommand& gc = font->glyph_commands[ic];
+
+            switch (gc.type) {
+            case GlyphCommand::MoveTo:
+                p0 = gc.p0 * scale + pos;
+                fp.move_to(p0);
+                lp.move_to(p0);
+                break;
+            case GlyphCommand::LineTo:
+                p0 = gc.p0 * scale + pos;
+                fp.line_to(p0);
+                lp.line_to(p0, sdf_size);
+                break;
+            case GlyphCommand::BezTo:
+                p0 = gc.p0 * scale + pos;
+                p1 = gc.p1 * scale + pos;
+                fp.qbez_to(p0, p1);
+                lp.qbez_to(p0, p1, sdf_size);
+                break;
+            case GlyphCommand::ClosePath:
+                fp.close();
+                lp.close(sdf_size);
+                break;
+            }
+        }
+    }
+    else {
+        /* Path is counter-clockwise. It has to be drawn in reverse order so that it clockwise and counter-clockwise paths can be handled the same way by the rendering. */
+        bool hasToBeClosed = false;
+        for (int ic = command_end; ic >= command_start; --ic) {
+            /* Get the end point of the previous command. */
+            if (ic > command_start) {
+                const GlyphCommand& gcPrevious = font->glyph_commands[ic - 1];
+                switch (gcPrevious.type) {
+                case GlyphCommand::MoveTo:
+                    pPrevious = gcPrevious.p0 * scale + pos;
+                    break;
+                case GlyphCommand::LineTo:
+                    pPrevious = gcPrevious.p0 * scale + pos;
+                    break;
+                case GlyphCommand::BezTo:
+                    pPrevious = gcPrevious.p1 * scale + pos;
+                    break;
+                }
+            }
+
+            const GlyphCommand& gc = font->glyph_commands[ic];
+            switch (gc.type) {
+            case GlyphCommand::MoveTo:
+                if (hasToBeClosed) {
+                    fp.close();
+                    lp.close(sdf_size);
+                    hasToBeClosed = false;
+                }
+                break;
+            case GlyphCommand::LineTo:
+                fp.line_to(pPrevious);
+                lp.line_to(pPrevious, sdf_size);
+                break;
+            case GlyphCommand::BezTo:
+                p0 = gc.p0 * scale + pos;
+                fp.qbez_to(p0, pPrevious);
+                lp.qbez_to(p0, pPrevious, sdf_size);
+                break;
+            case GlyphCommand::ClosePath:
+                hasToBeClosed = true;
+                fp.move_to(pPrevious);
+                lp.move_to(pPrevious);
+                break;
+            }
+        }
+    }
+}
+
+

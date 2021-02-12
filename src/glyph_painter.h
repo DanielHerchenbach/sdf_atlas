@@ -66,8 +66,12 @@ struct GlyphPainter {
     FillPainter fp;
 
     LinePainter lp;
+
+    float getEdge(F2 startPoint, F2 endPoint);
     
     void draw_glyph( const Font *font, int glyph_index, F2 pos, float scale, float sdf_size );
+
+    void draw_subglyph(const Font* font, int glyph_index, F2 pos, float scale, float sdf_size, int command_start, int command_end);
 
     void clear() {
         fp.vertices.clear();
