@@ -241,7 +241,8 @@ void GlyphPainter::draw_subglyph(const Font* font, int glyph_index, F2 pos, floa
     const bool isSubglyphEnclosed = (
         font->glyph_map.at(169) == glyph_index ||
         font->glyph_map.at(174) == glyph_index ||
-        font->glyph_map.at(8471) == glyph_index
+        font->glyph_map.at(8471) == glyph_index ||
+        font->glyph_map.at(48) == glyph_index
     );
     if (edgeSum > 0 || isSubglyphEnclosed) {
         /* Path is clockwise. */
